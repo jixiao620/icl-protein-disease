@@ -1,0 +1,63 @@
+data:
+  project_root: "/work/jl1401/icl_protein_disease"
+  processed_dir: "processed_data_c_v6"
+
+  train_diseases:
+    - "C44"
+    - "C809"
+    - "C50"
+    - "C61"
+    - "C16"
+    - "C22"
+    - "C25"
+    - "C56"
+    - "C67"
+    - "C71"
+    - "C73"
+    - "C85"
+    - "C90"
+    - "C92"
+
+  test_diseases:
+    - "C34"
+    - "C18"
+    - "C43"
+    - "C53"
+    - "C54"
+
+model:
+  name: "GPT"
+  protein_dim: 2941
+  hidden_dim: 768
+  dropout: 0.2
+  temperature: 1.0
+
+training:
+  batch_size: 16
+  num_epochs: 25
+  optimizer: "adam"
+  learning_rate: 0.000001
+  weight_decay: 0.00001
+  lr_scheduler: "cosine"
+  warmup_epochs: 3
+  loss: "weighted_bce"
+  log_interval: 10
+  eval_interval: 1
+  crossblock_eval_interval: 3
+  save_dir: "checkpoints_c_model_v6"
+  save_best_only: true
+  early_stopping_patience: 7
+
+context:
+  context_size: 32
+
+# v6: no query oversampling (use class weights only for speed)
+#     14 training diseases (3.5x more than v4/v5)
+#     periodic cross-block eval every 3 epochs
+sampling:
+  context_pos_ratio: 0.5
+  query_pos_ratio: null
+
+seed: 42
+device: "cuda"
+num_workers: 4

@@ -1,0 +1,89 @@
+{
+  "C34": {
+    "disease": "C34",
+    "n_train": 22948,
+    "n_train_pos": 587,
+    "n_test": 5738,
+    "n_test_pos": 147,
+    "prevalence": 0.02558739454786307,
+    "best_val_auroc": 0.9755103856736091,
+    "test_auroc": 0.7251231023620324,
+    "test_auprc": 0.15265679801831072,
+    "test_f1": 0.20920502092050208,
+    "context_pos_ratio": 0.5,
+    "query_pos_ratio": 0.5,
+    "elapsed_min": 101.71287747224171
+  },
+  "C18": {
+    "disease": "C18",
+    "n_train": 23014,
+    "n_train_pos": 653,
+    "n_test": 5754,
+    "n_test_pos": 163,
+    "prevalence": 0.02836484983314794,
+    "best_val_auroc": 0.9511829200231244,
+    "test_auroc": 0.6432006741772767,
+    "test_auprc": 0.06146407239158697,
+    "test_f1": 0.0823262839879154,
+    "context_pos_ratio": 0.5,
+    "query_pos_ratio": 0.5,
+    "elapsed_min": 106.55036237239838
+  },
+  "C43": {
+    "disease": "C43",
+    "n_train": 23048,
+    "n_train_pos": 686,
+    "n_test": 5762,
+    "n_test_pos": 172,
+    "prevalence": 0.02978132592849705,
+    "best_val_auroc": 0.9223444750326374,
+    "test_auroc": 0.6082887839580647,
+    "test_auprc": 0.04788849262816146,
+    "test_f1": 0.06046800579830192,
+    "context_pos_ratio": 0.5,
+    "query_pos_ratio": 0.5,
+    "elapsed_min": 121.75334448417028
+  },
+  "C53": {
+    "disease": "C53",
+    "n_train": 22717,
+    "n_train_pos": 356,
+    "n_test": 5680,
+    "n_test_pos": 89,
+    "prevalence": 0.015670669436912348,
+    "best_val_auroc": 0.967400084821375,
+    "test_auroc": 0.7419819975522458,
+    "test_auprc": 0.03834099430687986,
+    "test_f1": 0.051232166018158234,
+    "context_pos_ratio": 0.5,
+    "query_pos_ratio": 0.5,
+    "elapsed_min": 106.54295248985291
+  },
+  "C54": {
+    "disease": "C54",
+    "n_train": 22601,
+    "n_train_pos": 240,
+    "n_test": 5651,
+    "n_test_pos": 60,
+    "prevalence": 0.010618717258955118,
+    "best_val_auroc": 0.9915225314062515,
+    "test_auroc": 0.7336165265605437,
+    "test_auprc": 0.03605675291102919,
+    "test_f1": 0.07253886010362694,
+    "context_pos_ratio": 0.5,
+    "query_pos_ratio": 0.5,
+    "elapsed_min": 101.13571781714758
+  },
+  "summary": {
+    "mean_test_auroc": 0.6904422169220326,
+    "context_pos_ratio": 0.5,
+    "query_pos_ratio": 0.5,
+    "diseases": [
+      "C34",
+      "C18",
+      "C43",
+      "C53",
+      "C54"
+    ]
+  }
+}

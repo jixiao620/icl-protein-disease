@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --partition=biostat-gpu
+#SBATCH --gres=gpu:5000_ada:1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=64G
+#SBATCH --time=2-00:00:00
+#SBATCH --job-name=eval_i_ctx512
+#SBATCH --output=/work/jl1401/icl_protein_disease/logs/eval_i_ctx512_%j.log
+#SBATCH --error=/work/jl1401/icl_protein_disease/logs/eval_i_ctx512_%j.error
+export PATH="/work/jl1401/miniconda3/envs/icl_protein/bin:/usr/share/Modules/bin:/work/jl1401/miniconda3/bin:/work/jl1401/miniconda3/condabin:/hpc/home/jl1401/.local/bin:/hpc/home/jl1401/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/opt/slurm/bin"
+cd /work/jl1401/icl_protein_disease
+python -u scripts/eval_crossblock.py \
+  --checkpoint checkpoints_full_gpt/best_model.pt \
+  --data_dir processed_data_full \
+  --diseases I11 I119 I129 I15 I110 I13 I151 \
+  --output results/i_model_on_i_ctx512.json \
+  --context_size 512 \
+  --label "I model -> I test (ctx512)"

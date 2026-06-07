@@ -1,0 +1,66 @@
+data:
+  project_root: "/work/jl1401/icl_protein_disease"
+  processed_dir: "processed_data_g_v6"   # reuse v6 preprocessed data
+
+  train_diseases:
+    - "G439"
+    - "G43"
+    - "G56"
+    - "G560"
+    - "G12"
+    - "G45"
+    - "G47"
+    - "G61"
+    - "G93"
+    - "G10"   # Huntington's (neurodegenerative, new)
+    - "G41"   # status epilepticus / seizure (new, similar to G40)
+    - "G71"   # myopathy/muscular dystrophy (new)
+    - "G80"   # cerebral palsy (new)
+    # G31 held out as proxy val (degenerative brain, biologically closest to G30 Alzheimer's)
+
+  proxy_val_disease: "G31"   # held-out training disease for checkpoint selection
+
+  test_diseases:
+    - "G40"
+    - "G20"
+    - "G30"
+    - "G35"
+
+model:
+  name: "GPT"
+  protein_dim: 2941
+  hidden_dim: 768
+  dropout: 0.2
+  temperature: 1.0
+
+training:
+  batch_size: 16
+  num_epochs: 40
+  optimizer: "adam"
+  learning_rate: 0.000001
+  weight_decay: 0.00001
+  lr_scheduler: "cosine"
+  warmup_epochs: 3
+  loss: "weighted_bce"
+  log_interval: 10
+  eval_interval: 1
+  crossblock_eval_interval: 3   # test disease monitoring only (not used for selection)
+  save_dir: "checkpoints_g_model_v7"
+  save_best_only: true
+  early_stopping_patience: 7
+
+context:
+  context_size: 32
+
+# v7 changes vs v6:
+#   - proxy_val_disease (G31) replaces in-domain val AUROC for checkpoint selection
+#   - 13 train diseases (added G10/G41/G71/G80, removed G31)
+#   - all training data used (no 90/10 split)
+#   - epochs=40, patience=7
+sampling:
+  context_pos_ratio: 0.5
+  query_pos_ratio: null
+
+seed: 42
+device: "cuda"
+num_workers: 4

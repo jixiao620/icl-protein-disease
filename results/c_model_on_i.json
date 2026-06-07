@@ -1,0 +1,83 @@
+{
+  "I11": {
+    "n_samples": 19050,
+    "n_positives": 108,
+    "prevalence": 0.005669291131198406,
+    "auroc": 0.8274997360363214,
+    "auprc": 0.07855752987861621,
+    "accuracy": 0.9943307086614174,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "I119": {
+    "n_samples": 19024,
+    "n_positives": 82,
+    "prevalence": 0.004310344811528921,
+    "auroc": 0.81670233395397,
+    "auprc": 0.056004984210881126,
+    "accuracy": 0.9956896551724138,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "I129": {
+    "n_samples": 19020,
+    "n_positives": 78,
+    "prevalence": 0.004100946243852377,
+    "auroc": 0.904470867885502,
+    "auprc": 0.1788444779567234,
+    "accuracy": 0.9958990536277602,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "I15": {
+    "n_samples": 18991,
+    "n_positives": 49,
+    "prevalence": 0.002580169588327408,
+    "auroc": 0.892229555743742,
+    "auprc": 0.12996056943253478,
+    "accuracy": 0.9974198304460007,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "I110": {
+    "n_samples": 18979,
+    "n_positives": 37,
+    "prevalence": 0.0019495231099426746,
+    "auroc": 0.8723400308766163,
+    "auprc": 0.054707397376023884,
+    "accuracy": 0.9980504768428263,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "I13": {
+    "n_samples": 18975,
+    "n_positives": 33,
+    "prevalence": 0.0017391304718330503,
+    "auroc": 0.873468610719165,
+    "auprc": 0.04139911708888938,
+    "accuracy": 0.9982608695652174,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "I151": {
+    "n_samples": 18971,
+    "n_positives": 29,
+    "prevalence": 0.001528649008832872,
+    "auroc": 0.9179127572735646,
+    "auprc": 0.1255427496909084,
+    "accuracy": 0.9984713510094354,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "summary": {
+    "mean_auroc": 0.8720891274984116,
+    "label": "C model -> I test"
+  }
+}

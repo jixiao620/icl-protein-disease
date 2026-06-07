@@ -1,0 +1,49 @@
+# Line 1 - G block - Pathway HS: Headache / Sleep / Episodic
+# Train on G44, G47, G50, G51 (headache syndromes, sleep disorders, trigeminal, facial nerve)
+# Test all other G diseases; expect wins on episodic/pain-pathway diseases
+
+data:
+  project_root: "/work/jl1401/icl_protein_disease"
+  processed_dir: "processed_data_line1_g"
+  train_diseases:
+    - "G44"   # headache syndromes (tension, cluster)
+    - "G47"   # sleep disorders
+    - "G50"   # trigeminal neuralgia
+    - "G51"   # facial nerve disorders (Bell's palsy etc.)
+
+model:
+  name: "GPT"
+  protein_dim: 2941
+  hidden_dim: 768
+  dropout: 0.2
+  temperature: 1.0
+
+training:
+  batch_size: 8
+  num_epochs: 30
+  optimizer: "adam"
+  learning_rate: 0.000001
+  weight_decay: 0.00001
+  lr_scheduler: "cosine"
+  warmup_epochs: 5
+  loss: "weighted_bce"
+  log_interval: 10
+  eval_interval: 1
+  save_dir: "checkpoints_line1_g_hs"
+  save_best_only: true
+  early_stopping_patience: 15
+
+evaluation:
+  metrics:
+    - "auroc"
+
+context:
+  context_size: 32
+
+sampling:
+  context_pos_ratio: 0.5
+  query_pos_ratio: null   # no oversampling — matches v5 actual behaviour
+
+seed: 42
+device: "cuda"
+num_workers: 4

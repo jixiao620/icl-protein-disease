@@ -1,0 +1,40 @@
+data:
+  project_root: "/work/jl1401/icl_protein_disease"
+  data_dir: "data/data/Original_extracted/Original/data"
+  binary_csv: "binary_csv.gz"
+  processed_dir: "processed_data_i_expanded"
+
+  train_diseases:
+    - "I10"
+    - "I25"
+    - "I48"
+    - "I20"
+    - "I21"
+    - "I84"
+    - "I83"
+    - "I95"
+    - "I50"
+    - "I64"
+
+  test_diseases:
+    - "I11"
+    - "I119"
+    - "I129"
+    - "I15"
+    - "I110"
+    - "I13"
+    - "I151"
+    - "I80"
+
+  sample_n_per_disease: null
+
+features:
+  method: "none"
+  n_features: 2941
+  strategy: "none"
+
+context:
+  context_size: 32
+  n_shot_test: 32
+
+seed: 42
