@@ -191,5 +191,5 @@ This repository contains only model code and aggregated result statistics. The f
 
 ## Author
 
-Juntao Liu — Duke University  
+Jixiao Liu — Duke University  
 Contact: jl1401@duke.edu
