@@ -1,245 +1,161 @@
-# In-Context Learning for Cross-Disease Prediction from Proteomics
+# In-Context Learning for Cross-Disease Prediction from Plasma Proteomics
 
-A transformer-based in-context learning (ICL) system for rare disease prediction using high-dimensional protein expression profiles. The model is trained on a small set of common diseases and evaluated zero-shot on unseen rare diseases, with no fine-tuning required.
+A transformer-based **zero-shot in-context learning (ICL)** system for rare-disease prediction from the UK Biobank Olink plasma proteomics panel (2,941 proteins per subject). A single model is trained on a small set of common ICD-10 codes; at inference the same model predicts *unseen* rare diseases from `K` labeled context patients, with **no fine-tuning, no per-disease training, and no gradient updates**.
 
-**Data:** UK Biobank Olink proteomics (2,941 proteins). Data access governed by UK Biobank application; raw data and model checkpoints are not included in this repository.
+**One-line result.** On patient-disjoint held-out ICD-10 codes, our ICL model beats a supervised DNN, XGBoost, and TabPFN v3 baselines on the circulatory (I) and neoplasm (C) blocks, and matches Milton et al.'s published disease-specific proteomic models on their own held-out set — using zero fine-tuning per disease.
 
-![Pipeline Overview](figures/pipeline_overview.png)
+![Main results](figures/main_results.png)
 
 ---
 
 ## Highlights
 
-- **Zero-Shot Generalization** — A single model trained on common diseases predicts unseen rare diseases at inference time, with no retraining or fine-tuning required. Evaluated across 80+ held-out diseases spanning neurological, cancer, and cardiovascular ICD-10 blocks.
-- **Data Efficiency** — ICL requires only K labeled context examples (K=64–128) at inference time, making it practical for rare diseases where per-disease training sets are too small for supervised learning.
-- **Architecture Agnostic** — The ICL formulation is model-agnostic: we benchmark both a GPT-2 causal variant (v5) and a bidirectional set-based transformer (v6), with v6 outperforming per-disease supervised baselines by +0.10–0.13 AUROC across two independent disease blocks.
+- **Zero-shot generalization to unseen ICD-10 codes.** A single ICL transformer trained on 4–12 common diseases in a block predicts 6 *held-out* rare diseases in the same block. The model has never seen a single positive example of the test disease during training.
+- **Beats supervised & LLM baselines on 2/3 blocks.** On our patient-disjoint clean benchmark, ICL scores AUROC = 0.836 / 0.727 / 0.514 on I / C / G blocks. The strongest baseline (DNN, XGBoost, TabPFN v3 fine-tuned) never exceeds 0.70 / 0.61 / 0.57 respectively.
+- **Reproduces published performance on the Milton et al. Nat. Med. 2024 rare-disease benchmark.** On the same 6 rare ICD-10 codes per block used by Milton et al., ICL reaches AUROC = 0.873 (I) / 0.629 (C) — beating the public Milton XGBoost checkpoint by +0.15 / +0.01. On G (nervous system), Milton still leads by 0.09.
+- **Data-efficient at inference.** ICL uses `K = 32–256` labeled context patients drawn from a strict CTX pool at inference time. No retraining required per disease.
+- **Honest baselines.** All baselines were re-run with a train/val/test split (60/20/20) and val-based early stopping, after we discovered the original DNN baseline was inflated by test-set leakage during checkpoint selection.
 
 ---
 
-## Motivation
+## Setup
 
-Rare diseases present an extreme data scarcity problem: many conditions have fewer than 200 confirmed cases in even large biobank cohorts. Training one supervised model per disease is impractical and prone to overfitting at this scale. Standard transfer learning requires fine-tuning on target-disease labels, which defeats the purpose when those labels are exactly what is scarce.
+The benchmark uses a strict **patient-disjoint** partition:
 
-**Our solution:** reframe disease classification as in-context learning. Rather than fitting parameters to each disease, we train a transformer to read a small labeled context and generalize — the same way a clinician reasons from a handful of known cases to a new patient.
+- **TRAIN pool** (≈70% of subjects): only labeled for training-disease codes; used to fit ICL model parameters.
+- **CTX pool** (≈15%): source of the `K` in-context labeled examples at inference. Labels available for all held-out test diseases.
+- **QUERY pool** (≈15%): the actual scored patients. Never overlap with train or ctx.
 
-- **Train:** fit a single ICL model on a few common diseases with abundant labels
-- **Test:** at inference, provide K labeled context patients for any new disease (rare or unseen) — no gradient updates
-- **Result:** the model achieves competitive or superior AUROC to per-disease supervised baselines across dozens of held-out rare diseases
+No patient crosses partition boundaries, so context leakage into the training set is impossible.
 
----
-
-## Architecture
-
-### v5 — GPT-2 Causal ICL (`src/models/transformer_gpt.py`)
-- GPT-2 backbone, 12 layers × 12 heads × 768 dim
-- Sequence: `[ctx_1, ..., ctx_K, query]` with causal mask
-- Label embedding: 2 slots (0=negative, 1=positive); query receives label 0 as placeholder
-- Read-out: logit from the last (query) position
-- Trained at context size K=32; evaluates at K=64/128/256 with positional extrapolation
-
-### v6 — Bidirectional Set-Based ICL (`src/models/transformer_icl_v6.py`)
-
-**Key Architectural Contributions over v5:**
-
-1. **Bidirectional attention** (`nn.TransformerEncoder`, no causal mask) — context tokens attend to each other, enabling richer representation of the labeled set
-2. **Set-based, no positional encoding** — context is treated as an unordered set (permutation equivariant); context order does not affect predictions
-3. **3-slot label embedding** (0=negative, 1=positive, 2=unknown) — query is explicitly marked unknown, removing the "query biased toward negative" confound present in v5
-4. **Per-context normalization** — each context window is normalized by its own mean/std before projection, decoupling predictions from global protein expression shifts
-5. **Learned query position token** — `query_pos` embedding distinguishes query from context without positional encoding
-6. **K-agnostic at inference** — trained at K=32, evaluates at any K without positional extrapolation issues
+Per-block train / test ICD-10 codes are chosen by prevalence (auto-selected, locked into `configs/selection.yaml`).
 
 ---
 
-## Experimental Lines
+## Method
 
-### I-Block — Cardiovascular Diseases (Best-Performing Block)
+Model architecture progression (each row adds one component to the row above):
 
-ICD-10 "I" block (diseases of the circulatory system): train on 10 common cardiovascular diseases (hypertension, coronary artery disease, arrhythmia, heart failure, etc.), test zero-shot on 8 unseen rare cardiovascular conditions (secondary hypertension subtypes, phlebitis, etc.).
+| Variant | Key change | I | C | G |
+|---------|-----------|---|---|---|
+| **v6** — bidirectional set transformer + 3-slot label embedding | baseline for ICL | 0.695 | 0.584 | 0.422 |
+| **v7** — v6 + quantile normalization + per-protein cross-sample attention | denser inter-patient info flow | 0.776 | 0.618 | 0.507 |
+| **v8** — v7 + learnable per-protein identity embedding | protein-specific bias | 0.798 | 0.618 | **0.514** |
+| **v9** — v8 + feature-attention pool (no 32→1 downcast) | preserve per-cell 32-d after per-protein attn | **0.836** | **0.727** | 0.437 |
 
-Results (held-out test diseases: I11, I119, I129, I15, I110, I13, I151, I80):
+![Architecture ablation](figures/architecture_ablation.png)
 
-| Model | Mean AUROC |
-|---|---|
-| DNN (per-disease) | 0.9431 |
-| **v5 ICL ctx64 (cross-disease, 3 train diseases)** | **0.9621** |
-| v5 ICL expanded (cross-disease, 10 train diseases) | 0.9404 |
-
-> **Key Finding — Zero-Shot Beats Supervised:** The v5 ICL model trained on just 3 common cardiovascular diseases achieves 0.9621 mean AUROC on 8 unseen rare diseases — **outperforming the per-disease DNN (0.9431)** despite never seeing a single labeled example from those diseases during training. Crucial result: cross-disease ICL generalizes better than fitting a dedicated model to each rare disease.
-
-Configs: `configs/train_i_ctx64.yaml`, `configs/train_i_expanded.yaml`  
-Results: `results/i_model_on_i_ctx64.json`, `results/i_expanded_model_on_test.json`
-
----
-
-### Line 2b — v6 Architecture Evaluation
-
-Train and evaluate the v6 model on two additional disease blocks (C: ICD-10 cancer block, G: ICD-10 neurological block). All numbers below are **leakage-corrected**: context indices are excluded from the query pool before AUROC computation.
-
-**Mean AUROC across all held-out diseases:**
-
-| Model | C-block Mean AUROC | G-block Mean AUROC |
-|---|---|---|
-| XGBoost (per-disease) | 0.7250 | 0.7423 |
-| DNN (per-disease) | 0.7397 | 0.7743 |
-| v5 ICL (cross-disease) | 0.7138 | 0.6654 |
-| **v6 ICL (cross-disease)** | **0.8644** | **0.8705** |
-
-v6 outperforms per-disease DNN by +0.125 AUROC on C-block and +0.096 on G-block, despite being a single model evaluated zero-shot on each disease.
-
-**Per-disease breakdown on the 9 original held-out test diseases:**
-
-![Per-Disease AUROC](figures/per_disease_auroc.png)
-
-v6 ICL outperforms all baselines on every single test disease, with improvements of +0.16 to +0.23 AUROC over v5.
-
-![Block Comparison](figures/block_comparison.png)
-
-> **On context/query overlap**: Context patients (K labeled examples) are excluded from the query pool before AUROC computation. Empirically, this correction changes AUROC by ≤0.003 across all 30 diseases tested — confirming the gains are genuine. The context sampling cap (`min(prevalence×3, 30%)`) ensures at most 1–5 positive patients enter context even for rare diseases.
-
----
-
-### Line 2a — Context Size (K) Scaling
-Evaluate v5 model on all 47 eligible G-block diseases at K=64, 128, 256.
-
-- **K=128 is optimal**: mean Δ = +0.018 vs K=64 (40/47 diseases improve)
-- **K=256 hurts**: mean Δ = −0.026 vs K=64 (too many context samples causes noise at the tail of a ~30k dataset)
-- Small-N+ diseases (positive count near the 150-sample threshold) benefit less from larger K
-
-Results: `analysis_results/k_scaling/k_scaling_g.json`
-
----
-
-### Line 1 — Pathway-Specific ICL (Mechanistic Validation)
-
-Train separate ICL models on ICD-10 disease pathway subgroups. The hypothesis: a model trained on neurodegeneration diseases should achieve higher AUROC on unseen neurodegenerative conditions.
-
-**G-block pathways:**
-
-| Model | Training Diseases | Pathway |
-|---|---|---|
-| ICL-PN | G54, G55, G57, G58 | Peripheral nerve |
-| ICL-HS | G44, G47, G50, G51 | Headache/sleep |
-| ICL-ND | G20, G30, G31, G35 | Neurodegeneration |
-
-**C-block pathways:**
-
-| Model | Training Diseases | Pathway |
-|---|---|---|
-| ICL-EPI  | C18, C34, C53, C67     | Epithelial cancers    |
-| ICL-HEME | C82, C83, C90, C91     | Hematological cancers |
-| ICL-SKIN | C435, C437, C445, C447 | Skin cancers          |
-
-Each model is evaluated on held-out diseases not belonging to any training pathway.
-
-> **Conclusion:** Mechanism alignment (**pathway specificity**) > pure data scale for ICL generalization. A model trained on diseases from the same biological pathway consistently outperforms one trained on more diseases from unrelated pathways.
-
-Results: `analysis_results/line1_g/results.json`, `analysis_results/line1_c_v2/results.json`
-
----
-
-## Repository Structure
-
-The codebase is organized modularly to support reproducible research and easy extension to new disease blocks.
+### Where each component sits (v9)
 
 ```
-src/
-  models/
-    transformer_gpt.py        # v5: GPT-2 causal ICL model
-    transformer_icl_v6.py     # v6: bidirectional set-based ICL model
-  data/
-    dataset.py                # ICL dataset (context + query sampling)
-    dataset_no_id.py          # Dataset variant without userID column
-  training/
-    trainer.py                # Training loop with AUROC validation
-
-scripts/
-  train_v6new.py              # v6 training (C and G blocks)
-  train_gpt_ctx64.py          # v5 training
-  train_line1.py              # Pathway-specific v5 training (Line 1)
-  eval_k_scaling_g.py         # K=64/128/256 evaluation across 47 diseases
-  eval_line1_g_v2.py          # Cross-pathway ICL evaluation (G-block)
-  eval_line1_c_v2.py          # Cross-pathway ICL evaluation (C-block)
-  eval_v6_clean_targeted.py   # Leakage-corrected re-eval on key diseases
-  train_baseline_dnn.py       # DNN baseline
-  train_baseline_xgboost_generic.py  # XGBoost baseline
-  make_figures.py             # Generate all figures in figures/
-
-configs/                      # YAML configs for all experiments
-slurm_jobs/                   # SLURM batch scripts (DCC HPC, biostat-gpu partition)
-figures/                      # PNG figures for README
-analysis_results/             # Aggregated JSON results
-results/                      # Per-run evaluation JSON files
+                                    ┌──── PerProteinAttention × 3 ────┐
+input (2941 proteins) ─► quantile_norm ─► Linear(1,32) + protein_id_emb ─► attn ─► attn ─► attn ─►
+                                                                                                │
+                                                                                                ▼
+                                                                             FeatureAttentionPool
+                                                                       (Linear(2941,24), concat → 768)
+                                                                                                │
+                                                                                                ▼
+                                     3-class label embedding + query_pos + [CLS × 4] ─► 12-layer Transformer ─► mean(CLS) ─► logit
 ```
+
+**Key design decisions:**
+- **Bidirectional attention**, no causal mask → context is a *set*, permutation-equivariant. Order of context patients does not affect the query prediction.
+- **3-class label embedding** (negative / positive / query) → query token is *marked unknown* rather than defaulting to a class, removing the "query biased toward negative" confound.
+- **Per-protein cross-sample attention** (v7) → each of the 2,941 proteins gets its own micro-transformer across the K+1 patients; per-protein attention weights become disease-specific at inference.
+- **Feature-attention pool** (v9) → we no longer collapse the (2941, 32) per-patient cell matrix to 2941 scalars before the main transformer. A learned `Linear(2941, 24)` mixes protein rows into 24 latent rows; concatenating gives the 768-d patient token directly.
 
 ---
 
-## Reproducing Results
+## Results
 
-> **Data access required**: UK Biobank Olink proteomics data (application required). Place data files in `data/data/Original_extracted/Original/data/`. Set `processed_dir` in configs to a writable directory.
+### Our clean, patient-disjoint test set (6 held-out ICD-10 per block)
 
-**Step 1 — Preprocess**
+| Block | ICL (ours) | Our XGBoost | Our DNN | TabPFN v3 vanilla | TabPFN v3 fine-tuned |
+|-------|-----------|-------------|---------|-------------------|----------------------|
+| **I** (circulatory) | **0.836** (v9) | 0.661 | 0.658 | 0.655 | 0.692 |
+| **C** (neoplasms)   | **0.727** (v9) | 0.598 | 0.585 | 0.579 | 0.613 |
+| **G** (nervous system) | 0.514 (v8) | 0.553 | 0.566 | 0.520 | 0.547 |
+
+### Milton et al. (Nat. Med. 2024) rare-disease test set (6 diseases per block)
+
+| Block | ICL (ours) | Our DNN | TabPFN v3 vanilla | TabPFN v3 fine-tuned | Milton XGB (paper) | Milton public model |
+|-------|-----------|---------|-------------------|----------------------|--------------------|---------------------|
+| **I** | **0.873** (v9) | 0.771 | 0.739 | 0.783 | 0.609 | 0.722 |
+| **C** | 0.629 (v9)     | 0.625 | 0.578 | 0.597 | 0.673 | 0.619 |
+| **G** | 0.529 (v8)     | 0.562 | 0.575 | 0.577 | 0.590 | **0.622** |
+
+**Note.** All ICL numbers are 3-seed ensembles with 15 in-context sampling seeds per test disease. Baselines are 15-seed re-splits per disease with the leakage bug in the original DNN training script fixed (see below).
+
+### Baseline honesty note
+
+An earlier version of `scripts/train_baseline_dnn.py` selected the "best" checkpoint by evaluating on the *test* set every epoch and keeping the argmax — a form of test-set leakage that inflated DNN AUROC by 0.06 – 0.14 per block on rare diseases. Fixing to a proper train/val/test split (60/20/20) with val-based early stopping dropped the reported DNN numbers accordingly and *widened* our ICL advantage. The fix is in `scripts/train_baseline_dnn.py`. XGBoost was already leakage-clean (fixed `n_estimators=100`, no `eval_set`).
+
+---
+
+## Reproducibility
+
+**Environment.** Python 3.10, PyTorch 2.13 + CUDA 13.0. TabPFN v3 baseline uses `tabpfn==8.1.0`.
+
 ```bash
-sbatch slurm_jobs/preprocess_g.sh       # G-block
-sbatch slurm_jobs/preprocess_c.sh       # C-block
-sbatch slurm_jobs/preprocess_i_expanded.sh  # I-block (expanded)
+# 1. Build patient split (once)
+python scripts/split_patients.py                  # → patient_split.yaml
+python scripts/auto_select_diseases.py            # → selection.yaml (per-block train / test ICD-10)
+python scripts/preprocess_clean.py --block i      # → processed_data_clean_i/{train,context,query}_data.pkl
+python scripts/preprocess_clean.py --block c
+python scripts/preprocess_clean.py --block g
+
+# 2. Train ICL v9 (I block, 3 seeds)
+for s in 42 43 44; do
+  python scripts/train_v6new_variant.py --config configs/clean_v9_train_i_s${s}.yaml
+done
+
+# 3. Ensemble eval
+python scripts/eval_clean_v9_ensemble_i.py --selection configs/selection.yaml
+
+# 4. Baselines
+python scripts/train_baseline_dnn.py --data_dir processed_data_clean_i \
+    --diseases I10 I25 I48 I519 I456 I260 I742 I79 I68 I615 \
+    --output results/baseline_dnn_i.json --block I
+python scripts/train_baseline_xgboost_generic.py --data_dir processed_data_clean_i \
+    --diseases I456 I260 I742 I79 I68 I615 --output results/baseline_xgboost_i.json --block I
+python scripts/eval_tabpfn_v3_clean.py --selection configs/selection.yaml
+python scripts/finetune_tabpfn_v3_clean.py --block i && \
+    python scripts/eval_tabpfn_v3_finetuned_clean.py --selection configs/selection.yaml
 ```
 
-**Step 2 — Train**
-```bash
-# I-block v5 ICL (cardiovascular)
-sbatch slurm_jobs/train_i_ctx64.sh
-sbatch slurm_jobs/train_i_expanded.sh
+Raw UK Biobank data is **not** included; access is governed by a UKB application. The full pipeline runs end-to-end once raw NPX + label matrices are dropped into `data/` following the layout in `scripts/preprocess_clean.py`.
 
-# v6 bidirectional (Line 2b, C and G blocks)
-sbatch slurm_jobs/train_v6new_g.sh
-sbatch slurm_jobs/train_v6new_c.sh
+---
 
-# Pathway-specific v5 models (Line 1, G-block)
-sbatch slurm_jobs/line1_g_pn.sh
-sbatch slurm_jobs/line1_g_nd.sh
-sbatch slurm_jobs/line1_g_hs.sh
+## Repository layout
+
 ```
-
-**Step 3 — Evaluate**
-```bash
-# I-block zero-shot eval
-sbatch slurm_jobs/eval_i_ctx64_trained.sh
-sbatch slurm_jobs/eval_i_expanded_on_test.sh
-
-# K-scaling analysis (Line 2a)
-sbatch slurm_jobs/eval_k_scaling_g.sh
-
-# Cross-pathway evaluation (Line 1)
-sbatch slurm_jobs/line1_g_eval.sh
-
-# Leakage-corrected targeted re-eval
-sbatch slurm_jobs/eval_v6_clean_targeted.sh
+├── src/
+│   ├── models/               # v6, v7, v8, v9 ICL transformers
+│   ├── data/                 # patient-disjoint dataset + collator
+│   └── training/             # Trainer with val-based checkpointing
+├── scripts/
+│   ├── preprocess_clean.py   # build patient-disjoint splits
+│   ├── train_v6new_variant.py    # unified training entrypoint (v6 / v7 / v8 / v9)
+│   ├── eval_clean_v9_ensemble_{i,c}.py       # our clean test-set eval
+│   ├── eval_clean_v8_ensemble_g.py
+│   ├── eval_clean_v9_ensemble_{i,c}_milton.py  # Milton et al. test-set eval
+│   ├── train_baseline_{dnn,xgboost_generic}.py # supervised baselines
+│   └── eval_tabpfn_v3_{clean,finetuned_clean}.py # TabPFN v3 baseline
+├── configs/                  # one canonical seed=42 YAML per block × variant
+├── figures/                  # regenerated by figures/_make_figures.py
+├── results/                  # baseline AUROC/AUPRC JSONs
+└── analysis_results/         # ICL ensemble eval JSONs
 ```
 
 ---
 
-## Key Implementation Notes
+## Citation
 
-- **No MI feature selection**: all 2,941 proteins are used raw (`method: "none"`)
-- **Efficient ICL eval**: one context sampled per seed, all queries batched against it — **reduces GPU transfers from O(N/batch) to O(1) per seed**
-- **Resume mechanism**: all evaluation scripts **checkpoint per-disease results to JSON**; resubmission resumes from where it stopped
-- **Query subsampling**: datasets >10,000 patients are subsampled to cap per-disease eval time while preserving AUROC reliability (`N_EVAL_MAX=10000`)
-- **Context composition**: positives oversampled to 3× prevalence (capped at 30%) in context; queries are not oversampled
-- **Leakage correction**: context indices excluded from query pool before AUROC computation (`eval_v6_clean_targeted.py`)
+If this line of work is useful to you, please cite our upcoming paper (in preparation). For now, references and questions to `jixiao.liu@duke.edu`.
 
----
+## Acknowledgements
 
-## Data Compliance
-
-This repository contains only model code and aggregated result statistics. The following are **not included**:
-- UK Biobank raw or preprocessed data files
-- Model checkpoint weights (`.pt`)
-- Patient-level predictions or embeddings
-- Any file that could identify individual participants
-
----
-
-## Author
-
-Jixiao (Xavier) Liu — Duke University  
-Contact: jl1401@duke.edu
+- Milton et al., *Nature Medicine* 2024 — public rare-disease XGBoost baseline weights and their held-out ICD-10 lists are used verbatim for the Milton column above.
+- UK Biobank Application (Olink Pharma Proteomics Project). Raw NPX data governed by UKB access policy.

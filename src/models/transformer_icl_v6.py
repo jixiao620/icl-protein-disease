@@ -1,7 +1,7 @@
 """
 ICL Transformer v6: set-based, bidirectional, per-context normalization.
 
-Key changes vs v5 (InContextTransformerGPT):
+Architectural features:
   1. Bidirectional attention (nn.TransformerEncoder, no causal mask)
   2. Context tokens have no positional encoding (set-based; order doesn't matter)
   3. label_emb expanded to 3 slots: 0=negative, 1=positive, 2=unknown (query)

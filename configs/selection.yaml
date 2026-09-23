@@ -1,0 +1,45 @@
+meta:
+  rule: prevalence-based split per ICD-10 block
+  min_positives: 30
+  n_train: 4
+  n_test: 6
+blocks:
+  I:
+    train:
+    - I10
+    - I25
+    - I48
+    - I519
+    test:
+    - I456
+    - I260
+    - I742
+    - I79
+    - I68
+    - I615
+  C:
+    train:
+    - C44
+    - C809
+    - C449
+    - C50
+    test:
+    - C676
+    - C838
+    - C921
+    - C07
+    - C211
+    - C51
+  G:
+    train:
+    - G439
+    - G43
+    - G56
+    - G560
+    test:
+    - G960
+    - G620
+    - G912
+    - G550
+    - G00
+    - G958

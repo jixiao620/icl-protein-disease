@@ -313,7 +313,12 @@ class Trainer:
 
 
 
-        for epoch in range(self.config['training']['num_epochs']):
+        # Auto-resume if a last_ckpt.pt is present in save_dir
+        start_epoch = self.try_resume()
+
+
+
+        for epoch in range(start_epoch, self.config['training']['num_epochs']):
 
             epoch_start = time.time()
 
@@ -393,6 +398,9 @@ class Trainer:
 
 
 
+            # Save last_ckpt.pt every epoch to enable resume on time-out.
+            self.save_checkpoint('last_ckpt.pt', epoch, train_loss)
+
             # Save checkpoint periodically
 
             if (epoch + 1) % 10 == 0:
@@ -419,7 +427,9 @@ class Trainer:
 
     def save_checkpoint(self, filename, epoch, metric):
 
-        """Save model checkpoint"""
+        """Save model checkpoint (also stores scheduler + tracking state so
+        long jobs can be resumed after a SLURM timeout — e.g. K=2048 runs
+        that need > 7 days total need this to survive being restarted)."""
 
         checkpoint = {
 
@@ -428,6 +438,16 @@ class Trainer:
             'model_state_dict': self.model.state_dict(),
 
             'optimizer_state_dict': self.optimizer.state_dict(),
+
+            'scheduler_state_dict': self.scheduler.state_dict(),
+
+            'best_val_auroc': self.best_val_auroc,
+
+            'patience_counter': self.patience_counter,
+
+            'train_losses': self.train_losses,
+
+            'val_losses': self.val_losses,
 
             'metric': metric,
 
@@ -438,3 +458,29 @@ class Trainer:
         path = os.path.join(self.save_dir, filename)
 
         torch.save(checkpoint, path)
+
+
+    def try_resume(self, filename='last_ckpt.pt'):
+        """If save_dir/filename exists, load full state and return next epoch.
+        Otherwise return 0. Called at start of train() to enable auto-resume
+        from a previously interrupted run.
+
+        Guarantees: model, optimizer, and scheduler are advanced to the exact
+        state at end of the saved epoch; training continues from epoch+1."""
+        path = os.path.join(self.save_dir, filename)
+        if not os.path.exists(path):
+            print(f"[resume] no {path}; starting from epoch 0", flush=True)
+            return 0
+        ck = torch.load(path, map_location=self.device, weights_only=False)
+        self.model.load_state_dict(ck['model_state_dict'])
+        self.optimizer.load_state_dict(ck['optimizer_state_dict'])
+        if 'scheduler_state_dict' in ck:
+            self.scheduler.load_state_dict(ck['scheduler_state_dict'])
+        self.best_val_auroc = ck.get('best_val_auroc', 0.0)
+        self.patience_counter = ck.get('patience_counter', 0)
+        self.train_losses = ck.get('train_losses', [])
+        self.val_losses = ck.get('val_losses', [])
+        start = int(ck['epoch']) + 1
+        print(f"[resume] loaded {path} — continuing from epoch {start} "
+              f"(best_val_auroc={self.best_val_auroc:.4f})", flush=True)
+        return start
