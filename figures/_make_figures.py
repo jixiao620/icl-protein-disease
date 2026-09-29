@@ -22,7 +22,7 @@ blocks = ["I (circulatory)", "C (neoplasms)", "G (nervous system)"]
 # Our clean test set (6 held-out ICD-10 per block)
 # I/C use v9 featattn; G uses v11 = v9 featattn + ICD-10 hierarchical embedding
 ours_our = {
-    "ICL (v9 / v11 on G)":   [0.8363, 0.7266, 0.5972],
+    "ProteoICL(-Tree on G)":   [0.8363, 0.7266, 0.5972],
     "XGBoost":               [0.6610, 0.5984, 0.5533],
     "DNN":                   [0.6581, 0.5846, 0.5665],
     "TabPFN v3 (vanilla)":   [0.6554, 0.5793, 0.5195],
@@ -31,7 +31,7 @@ ours_our = {
 
 # Milton et al. test set (6 rare ICD-10, same as Nat Med 2024)
 ours_milton = {
-    "ICL (v9 / v11 on G)":   [0.8727, 0.6287, 0.6179],
+    "ProteoICL(-Tree on G)":   [0.8727, 0.6287, 0.6179],
     "DNN":                   [0.7714, 0.6254, 0.5619],
     "TabPFN v3 (vanilla)":   [0.7386, 0.5781, 0.5753],
     "TabPFN v3 (finetuned)": [0.7826, 0.5965, 0.5769],
@@ -39,7 +39,7 @@ ours_milton = {
 }
 
 colors = {
-    "ICL (v9 / v11 on G)":   "#d62728",
+    "ProteoICL(-Tree on G)":   "#d62728",
     "XGBoost":               "#7f7f7f",
     "DNN":                   "#1f77b4",
     "TabPFN v3 (vanilla)":   "#2ca02c",
@@ -85,11 +85,11 @@ print("wrote", OUT / "main_results.png")
 # For each block, we report AUROC (I=n_train=4 K=128, C=n_train=4 K=256,
 # G=n_train=12 K=128 — best per-block eval-time hyperparameters).
 variants = [
-    "v6 (bidirectional set)",
-    "v7 (+ quantile norm + per-protein cross-sample attn)",
-    "v8 (+ protein-ID embedding)",
-    "v9 (+ feature-attention pool)",
-    "v11 (+ ICD-10 hierarchical embedding)",
+    "bidirectional set",
+    "+ quantile norm +\nper-protein cross-sample attn",
+    "+ protein-ID embedding",
+    "+ feature-attention pool\n(ProteoICL)",
+    "+ ICD-10 tree embedding\n(ProteoICL-Tree)",
 ]
 # I: v6 = 0.6953, v7 = 0.7761, v8 = 0.7980, v9 = 0.8363, v11 = training
 # C: v6 = 0.5835, v7 = 0.6178, v8 = 0.6180, v9 = 0.7266, v11 = training
@@ -118,8 +118,7 @@ for bars, scores in [(b1, i_scores), (b2, c_scores), (b3, g_scores)]:
                     f"{v:.2f}", ha="center", va="bottom", fontsize=8.5)
 
 ax.set_xticks(x)
-ax.set_xticklabels([v.replace(" (", "\n(") for v in variants],
-                   fontsize=9)
+ax.set_xticklabels(variants, fontsize=8)
 ax.set_ylim(0, 1.0)
 ax.axhline(0.5, color="grey", linestyle=":", linewidth=0.7, alpha=0.7)
 ax.set_ylabel("Mean AUROC over 6 held-out ICD-10")
