@@ -111,8 +111,7 @@ b3 = ax.bar(x + bar_w, g_scores, bar_w, label="G block", color="#55A868",
 for bars, scores in [(b1, i_scores), (b2, c_scores), (b3, g_scores)]:
     for bar, v in zip(bars, scores):
         if np.isnan(v):
-            ax.text(bar.get_x() + bar.get_width() / 2, 0.02,
-                    "TBD", ha="center", va="bottom", fontsize=8, color="grey", style="italic")
+            bar.set_visible(False)
         else:
             ax.text(bar.get_x() + bar.get_width() / 2, v + 0.008,
                     f"{v:.2f}", ha="center", va="bottom", fontsize=8.5)
@@ -123,7 +122,7 @@ ax.set_ylim(0, 1.0)
 ax.axhline(0.5, color="grey", linestyle=":", linewidth=0.7, alpha=0.7)
 ax.set_ylabel("Mean AUROC over 6 held-out ICD-10")
 ax.set_title("Architectural Ablation — Progressive Additions to the ICL Transformer\n"
-             "(I / C / G blocks, evaluated on our clean patient-disjoint test set)",
+             "(evaluated on our clean patient-disjoint test set; ProteoICL-Tree is a G-only extension)",
              fontsize=12)
 ax.legend(loc="upper left", frameon=False)
 plt.tight_layout()

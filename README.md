@@ -45,7 +45,7 @@ Component-wise progression (each row adds one component to the row above):
 | + quantile normalization + per-protein cross-sample attention | denser inter-patient info flow | 0.776 | 0.618 | 0.507 |
 | + per-protein identity embedding | protein-specific bias | 0.798 | 0.618 | 0.514 |
 | + feature-attention pool ⇒ **ProteoICL** | preserve per-cell 32-d representation | **0.836** | **0.727** | 0.437 |
-| + ICD-10 hierarchical prefix embedding ⇒ **ProteoICL-Tree** | shared signal across sibling ICD codes | (training) | (training) | **0.597** |
+| + ICD-10 hierarchical prefix embedding ⇒ **ProteoICL-Tree** *(G-only)* | shared signal across sibling ICD codes | — | — | **0.597** |
 
 ![Architecture ablation](figures/architecture_ablation.png)
 
